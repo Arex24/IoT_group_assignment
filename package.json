@@ -1,0 +1,23 @@
+{
+  "name": "iot-dashboard",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  },
+  "description": "Introduction\r This group assignment is designed to help you apply and expand your IoT knowledge gained throughout the semester during tutorials and the individual practical assignment by collaboratively building an IoT project in a group. In addition, it aims to strengthen your skills in project management and effective teamwork.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MRNOOR1/SWE30011-Group-Assignment-.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/MRNOOR1/SWE30011-Group-Assignment-/issues"
+  },
+  "homepage": "https://github.com/MRNOOR1/SWE30011-Group-Assignment-#readme"
+}
