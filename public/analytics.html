@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>SmartMonitor • Analytics</title>
+  <title>Smart Monitor • Analytics</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -13,97 +13,100 @@
       <a href="/">Dashboard</a>
       <a href="/analytics" class="active">Analytics</a>
       <a href="/settings">Settings</a>
-
     </nav>
   </aside>
 
   <main class="main">
-    <header>
-      <h1>Analytics</h1>
-    </header>
+    <header><h1>Analytics</h1></header>
 
-    <!-- Summary Cards -->
-    <section class="cards">
+    <!-- Summary Metrics -->
+    <section class="analytics-metrics">
       <div class="card">
         <div class="title">Total Exits</div>
         <div class="value" id="total-exits">—</div>
       </div>
       <div class="card">
-        <div class="title">Avg Break</div>
-        <div class="value" id="avg-break">— min</div>
+        <div class="title">Avg Break (min)</div>
+        <div class="value" id="avg-break">—</div>
       </div>
       <div class="card">
-        <div class="title">Posture OK %</div>
+        <div class="title">% Good Posture</div>
         <div class="value" id="posture-ok">—%</div>
       </div>
       <div class="card">
-        <div class="title">Avg CO₂</div>
-        <div class="value" id="avg-co2">— ppm</div>
+        <div class="title">Avg CO₂ (ppm)</div>
+        <div class="value" id="avg-co2">—</div>
       </div>
     </section>
 
-    <button id="refresh-analytics" style="margin-bottom:1rem;">Refresh</button>
+    <!-- Break-duration-over-time Chart -->
+    <div 
+      class="analytics-chart" 
+      style="display:flex; flex-direction:column; height:350px; margin-bottom:2rem;"
+    >
+      <h2>Break Duration by Minute (last 10 min)</h2>
+      <canvas 
+        id="chart-break" 
+        style="width:100%; flex:1; height:100%;"
+      ></canvas>
+    </div>
 
-    <!-- Historical Chart -->
-    <section class="analytics-chart">
-      <h2>Break Durations (Last 7 Days)</h2>
-      <canvas id="chart-breaks"></canvas>
-    </section>
+    <button id="refresh-analytics">Refresh</button>
   </main>
 
   <script>
-  let chartInstance = null;
+    let breakChart;
 
-  async function loadAnalytics() {
-  try {
-    const response = await fetch('/api/analytics-data');
-    const data = await response.json();
+    async function loadAnalytics() {
+      try {
+        const res = await fetch('/api/analytics-data');
+        if (!res.ok) throw new Error('API error');
+        const json = await res.json();
 
-    document.getElementById('total-exits').textContent = data.totalExits;
-    document.getElementById('avg-break').textContent = data.avgBreak + ' min';
-    document.getElementById('posture-ok').textContent = data.postureOk + '%';
-    document.getElementById('avg-co2').textContent = data.avgCO2 + ' ppm';
+        // metrics
+        document.getElementById('total-exits').textContent = json.totalExits;
+        document.getElementById('avg-break').textContent   = json.avgBreak;
+        document.getElementById('posture-ok').textContent  = json.postureOk + '%';
+        document.getElementById('avg-co2').textContent     = json.avgCO2;
 
-    const ctx = document.getElementById('chart-breaks').getContext('2d');
-    if (chartInstance) {
-      chartInstance.data.labels = data.chart.labels;
-      chartInstance.data.datasets[0].data = data.chart.breakDurations;
-      chartInstance.update();
-    } else {
-      chartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: data.chart.labels,
-          datasets: [{
-            label: 'Break Duration (min)',
-            data: data.chart.breakDurations,
-            borderColor: '#4e5dff',
-            backgroundColor: 'rgba(78,93,255,0.2)',
-            tension: 0.3,
-            fill: true
-          }]
-        },
-        options: {
-          plugins: { legend: { display: false } },
-          scales: {
-            y: { beginAtZero: true, title: { display: true, text: 'Minutes' } },
-            x: { title: { display: true, text: 'Date' } }
-          }
+        // chart
+        const labels = json.chart.labels;
+        const data   = json.chart.breakDurations;
+        if (breakChart) {
+          breakChart.data.labels = labels;
+          breakChart.data.datasets[0].data = data;
+          breakChart.update();
+        } else {
+          const ctx = document.getElementById('chart-break').getContext('2d');
+          breakChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels,
+              datasets: [{
+                data,
+                borderColor: 'var(--accent)',
+                backgroundColor: 'rgba(78,93,255,0.2)',
+                fill: true,
+                tension: 0.3
+              }]
+            },
+            options: {
+              plugins: { legend: { display: false } },
+              scales: {
+                x: { title: { display: true, text: 'Time (HH:MM)' } },
+                y: { title: { display: true, text: 'Break (min)' } }
+              },
+              maintainAspectRatio: false
+            }
+          });
         }
-      });
+      } catch (e) {
+        console.error('Analytics load error:', e);
+      }
     }
-  } catch (err) {
-    console.error('Failed to load analytics data:', err);
-  }
-  }
 
-// Initial load
-  loadAnalytics();
-
-// Add refresh button handler
-  document.getElementById('refresh-analytics').addEventListener('click', loadAnalytics);
-  
+    document.getElementById('refresh-analytics').onclick = loadAnalytics;
+    loadAnalytics();
   </script>
-  
 </body>
 </html>

@@ -17,15 +17,10 @@
   </aside>
 
   <main class="main">
-    <header>
-      <h1>Dashboard</h1>
-    </header>
-    <div id="co2-warning" style="display:none; background:#ff4e4e; color:white; padding:1em; text-align:center; margin-bottom:1em; border-radius:6px;">
-      Warning: CO₂ is above your safe threshold!
-    </div>
-    <div id="posture-warning" style="display:none; background:#ff9800; color:white; padding:1em; text-align:center; margin-bottom:1em; border-radius:6px;">
-      Warning: Bad posture detected! Please adjust your sitting position.
-    </div>
+    <header><h1>Dashboard</h1></header>
+
+    <div id="co2-warning" class="alert alert-danger">⚠️ CO₂ above safe threshold!</div>
+    <div id="posture-warning" class="alert alert-warning">⚠️ Bad posture detected!</div>
 
     <!-- Status Cards -->
     <section class="cards">
@@ -46,107 +41,104 @@
         <div class="value" id="light-status">—</div>
       </div>
       <div class="card">
-        <div class="title">Outdoor Temp</div>
-        <div class="value" id="outdoor-temp">— °C</div>
-      </div>
-      <div class="card">
         <div class="title">Outdoor AQI</div>
         <div class="value" id="outdoor-aqi">—</div>
       </div>
     </section>
-    <button id="refresh-dashboard" style="margin-bottom:1rem;">Refresh</button>
 
-    <!-- Charts -->
+    <button id="refresh-dashboard">Refresh</button>
+
+    <!-- Charts & Weather -->
     <section class="charts">
-      <div class="chart-card">
-        <h2>CO₂ Trend (1h)</h2>
-        <canvas id="chart-co2"></canvas>
-      </div>
       <div class="chart-card">
         <h2>Occupancy Timeline</h2>
         <canvas id="chart-occ"></canvas>
+      </div>
+      <div class="chart-card" id="weather-widget">
+        <h2>Local Weather</h2>
+        <div id="weather-info">Fetching weather…</div>
       </div>
     </section>
   </main>
 
   <script>
-    let settings = {};
+    let co2Chart, occChart;
 
     async function loadDashboard() {
       try {
-        // Fetch settings and dashboard data in parallel
         const [settingsRes, dataRes] = await Promise.all([
           fetch('/api/settings'),
           fetch('/api/dashboard-data')
         ]);
-        settings = await settingsRes.json();
-        const data = await dataRes.json();
+        if (!settingsRes.ok || !dataRes.ok) throw new Error('API error');
+        const settings = await settingsRes.json();
+        const data     = await dataRes.json();
 
+        // update cards
         document.getElementById('desk-status').textContent = data.deskOccupied ? 'Yes' : 'No';
-        document.getElementById('co2-level').textContent = data.co2 + ' ppm';
-        document.getElementById('room-temp').textContent = data.roomTemp + ' °C';
+        document.getElementById('co2-level').textContent  = data.co2 + ' ppm';
+        document.getElementById('room-temp').textContent  = data.roomTemp + ' °C';
         document.getElementById('light-status').textContent = data.lightOn ? 'On' : 'Off';
-        document.getElementById('outdoor-temp').textContent = data.outdoorTemp + ' °C';
-        document.getElementById('outdoor-aqi').textContent = data.outdoorAqi;
+        document.getElementById('outdoor-aqi').textContent  = data.outdoorAqi;
 
-        // Update or create CO₂ Trend chart
-        if (window.co2Chart) {
-          window.co2Chart.data.datasets[0].data = data.co2Trend;
-          window.co2Chart.update();
-        } else {
-          window.co2Chart = new Chart(
-            document.getElementById('chart-co2').getContext('2d'),
-            {
-              type: 'line',
-              data: {
-                labels: ['50m','40m','30m','20m','10m','Now'],
-                datasets: [{
-                  data: data.co2Trend,
-                  borderColor: '#4e5dff',
-                  backgroundColor: 'rgba(78,93,255,0.2)'
-                }]
-              },
-              options: { plugins:{legend:{display:false}}, scales:{x:{display:true, title: { display: true, text: 'Minutes Ago' }}, y: {display: true,title: { display: true, text: 'CO₂ (ppm)' }} } }
-            }
-          );
-        }
+        // warnings
+        document.getElementById('co2-warning').style.display = (data.co2 > settings.co2Threshold && !settings.muteAlerts) ? 'block' : 'none';
+        document.getElementById('posture-warning').style.display = (data.deskOccupied && data.posture==='bad' && !settings.muteAlerts) ? 'block' : 'none';
 
-        // Update or create Occupancy Timeline chart
-        if (window.occChart) {
-          window.occChart.data.datasets[0].data = data.occTimeline;
-          window.occChart.update();
+        // occupancy chart
+        const labels = ['50m','40m','30m','20m','10m','Now'];
+        if (occChart) {
+          occChart.data.datasets[0].data = data.occTimeline;
+          occChart.update();
         } else {
-          window.occChart = new Chart(
-            document.getElementById('chart-occ').getContext('2d'),
-            {
-              type: 'bar',
-              data: {
-                labels: ['50m','40m','30m','20m','10m','Now'],
-                datasets: [{
-                  data: data.occTimeline,
-                  borderColor: '#4e5dff',
-                  backgroundColor: 'rgba(78,93,255,0.2)'
-                }]
-              },
-              options: { plugins:{legend:{display:false}}, scales:{x:{display:true, title: { display: true, text: 'm' }}, y: {display: true,title: { display: true, text: 'n' }} } }
+          occChart = new Chart(document.getElementById('chart-occ'), {
+            type: 'bar',
+            data: { labels, datasets:[{ data: data.occTimeline }] },
+            options: {
+              plugins:{legend:{display:false}},
+              scales:{
+                x:{title:{display:true,text:'Minutes Ago'}},
+                y:{title:{display:true,text:'Occupied (1) / Empty (0)'}}
+              }
             }
-          );
+          });
         }
       } catch (err) {
-        console.error('Failed to load dashboard data:', err);
+        console.error('Dashboard load error:', err);
       }
     }
 
-    // Initial load
+    async function loadWeather() {
+      const infoEl = document.getElementById('weather-info');
+      try {
+        // fallback to a fixed location if geolocation is not available or denied:
+        const lat = 51.5074, lon = -0.1278;   // <-- put your desired default coords here
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&timezone=auto`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Weather API error');
+        const { current_weather: w } = await res.json();
+        const codeMap = {
+          0:'Clear',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',
+          45:'Fog',48:'Rime fog',51:'Light drizzle'
+        };
+        const desc = codeMap[w.weathercode]||'—';
+        infoEl.innerHTML = `<strong>${desc}</strong><br>${w.temperature.toFixed(1)}°C, wind ${w.windspeed.toFixed(1)} km/h`;
+      } catch (e) {
+        console.error('Weather load error:', e);
+        infoEl.textContent = 'Unable to load weather';
+      }
+    }
+
+    document.getElementById('refresh-dashboard').onclick = () => {
+      loadDashboard();
+      loadWeather();
+    };
+
+    // initial
     loadDashboard();
-
-    // Auto-refresh every 10 seconds
+    loadWeather();
     setInterval(loadDashboard, 10000);
-
-    // Add refresh button handler
-    document.getElementById('refresh-dashboard').addEventListener('click', loadDashboard);
+    setInterval(loadWeather, 600000);
   </script>
-
-  <script src="app.js"></script>
 </body>
 </html>
