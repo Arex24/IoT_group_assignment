@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "../../swe_iot/IoT_group_assignment"
+		},
+		{
+			"path": "."
+		},
+		{
+			"path": "../node_modules"
+		}
+	],
+	"settings": {}
+}

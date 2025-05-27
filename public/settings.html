@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SmartMonitor • Settings</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="logo">SmartMonitor</div>
+    <nav>
+      <a href="/">Dashboard</a>
+      <a href="/analytics">Analytics</a>
+      <a href="/settings" class="active">Settings</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <header>
+      <h1>User Controls & Settings</h1>
+    </header>
+
+    <section class="cards" style="max-width:400px;margin:auto;">
+      <form id="settings-form">
+        <div class="card">
+          <label for="co2-threshold" class="title">CO₂ Alert Threshold (ppm)</label>
+          <input type="number" id="co2-threshold" min="400" max="2000" step="50" required>
+        </div>
+        <div class="card">
+          <label for="break-interval" class="title">Break Reminder Interval (minutes)</label>
+          <select id="break-interval">
+            <option value="10">10</option>
+            <option value="15">15</option>
+            <option value="20">20</option>
+          </select>
+        </div>
+        <div class="card">
+          <label for="mute-alerts" class="title">Mute Alerts</label>
+          <input type="checkbox" id="mute-alerts">
+        </div>
+        <button type="submit" class="card" style="margin-top:1rem;">Save Settings</button>
+      </form>
+      <div id="settings-status" style="margin-top:1rem;color:var(--accent);text-align:center;"></div>
+    </section>
+  </main>
+
+  <script>
+    // Fetch current settings on load
+    async function loadSettings() {
+      const res = await fetch('/api/settings');
+      if (res.ok) {
+        const data = await res.json();
+        document.getElementById('co2-threshold').value = data.co2Threshold || 800;
+        document.getElementById('break-interval').value = data.breakInterval || 45;
+        document.getElementById('mute-alerts').checked = data.muteAlerts || false;
+      }
+    }
+
+    // Save settings to backend
+    document.getElementById('settings-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const payload = {
+        co2Threshold: Number(document.getElementById('co2-threshold').value),
+        breakInterval: Number(document.getElementById('break-interval').value),
+        muteAlerts: document.getElementById('mute-alerts').checked
+      };
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      document.getElementById('settings-status').textContent = res.ok ? "Settings saved!" : "Failed to save settings.";
+    });
+
+    loadSettings();
+  </script>
+</body>
+</html>

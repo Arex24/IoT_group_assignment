@@ -6,13 +6,14 @@
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-
 <body>
   <aside class="sidebar">
     <div class="logo">SmartMonitor</div>
     <nav>
       <a href="/">Dashboard</a>
       <a href="/analytics" class="active">Analytics</a>
+      <a href="/settings">Settings</a>
+
     </nav>
   </aside>
 
@@ -41,6 +42,8 @@
       </div>
     </section>
 
+    <button id="refresh-analytics" style="margin-bottom:1rem;">Refresh</button>
+
     <!-- Historical Chart -->
     <section class="analytics-chart">
       <h2>Break Durations (Last 7 Days)</h2>
@@ -49,23 +52,58 @@
   </main>
 
   <script>
-    // Placeholder values
-    document.getElementById('total-exits').textContent = '8';
-    document.getElementById('avg-break').textContent = '30';
-    document.getElementById('posture-ok').textContent = '92';
-    document.getElementById('avg-co2').textContent = '620';
+  let chartInstance = null;
 
-    new Chart(
-      document.getElementById('chart-breaks').getContext('2d'),
-      { type:'line',
-        data:{
-          labels:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
-          datasets:[{ data:[25,30,28,35,20,40,32], borderColor:'#4e5dff', backgroundColor:'rgba(78,93,255,0.2)' }]
+  async function loadAnalytics() {
+  try {
+    const response = await fetch('/api/analytics-data');
+    const data = await response.json();
+
+    document.getElementById('total-exits').textContent = data.totalExits;
+    document.getElementById('avg-break').textContent = data.avgBreak + ' min';
+    document.getElementById('posture-ok').textContent = data.postureOk + '%';
+    document.getElementById('avg-co2').textContent = data.avgCO2 + ' ppm';
+
+    const ctx = document.getElementById('chart-breaks').getContext('2d');
+    if (chartInstance) {
+      chartInstance.data.labels = data.chart.labels;
+      chartInstance.data.datasets[0].data = data.chart.breakDurations;
+      chartInstance.update();
+    } else {
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: data.chart.labels,
+          datasets: [{
+            label: 'Break Duration (min)',
+            data: data.chart.breakDurations,
+            borderColor: '#4e5dff',
+            backgroundColor: 'rgba(78,93,255,0.2)',
+            tension: 0.3,
+            fill: true
+          }]
         },
-        options:{ plugins:{legend:{display:false}} }
-      }
-    );
+        options: {
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: 'Minutes' } },
+            x: { title: { display: true, text: 'Date' } }
+          }
+        }
+      });
+    }
+  } catch (err) {
+    console.error('Failed to load analytics data:', err);
+  }
+  }
+
+// Initial load
+  loadAnalytics();
+
+// Add refresh button handler
+  document.getElementById('refresh-analytics').addEventListener('click', loadAnalytics);
+  
   </script>
-  <script src="app.js"></script>
+  
 </body>
 </html>
