@@ -1,13 +1,10 @@
-<<<<<<< HEAD
-// server.js
-=======
->>>>>>> 00988b7e6f9bfb03a426f298e5723f592bafb8d1
 const express = require("express");
 const path = require("path");
 const { MongoClient } = require("mongodb");
-require("dotenv").config();
+require('dotenv').config();
 
 const app = express();
+const fetch = require('node-fetch');
 const PORT = process.env.PORT || 3000;
 
 // Middleware for JSON parsing
@@ -19,27 +16,10 @@ const dbName = "iot-assignment";
 
 let db, eventsCollection, settingsCollection;
 
-<<<<<<< HEAD
-// cooldown timers for Discord alerts (if you use them)
-=======
 // Discord alert cooldown variables
->>>>>>> 00988b7e6f9bfb03a426f298e5723f592bafb8d1
 let lastDiscordAlertTime = 0;
 const DISCORD_ALERT_COOLDOWN = 6 * 1000; // 6 seconds for demo/testing
 
-<<<<<<< HEAD
-// require.env checks
-if (!mongoUri) {
-  console.error("Error: MONGO_CONNECTION_STRING is not set");
-  process.exit(1);
-}
-if (!process.env.DISCORD_WEBHOOK_URL) {
-  console.error("Error: DISCORD_WEBHOOK_URL is not set");
-  process.exit(1);
-}
-
-// optional: wrap fetch in a try/catch
-=======
 let lastPostureAlertTime = 0;
 const POSTURE_ALERT_COOLDOWN = 6 * 1000; // 6 seconds for demo/testing
 
@@ -62,87 +42,22 @@ function generateRandomEvent() {
 }
 
 // Helper function to send Discord alert
->>>>>>> 00988b7e6f9bfb03a426f298e5723f592bafb8d1
 async function sendDiscordAlert(message) {
-  try {
-    const res = await fetch(process.env.DISCORD_WEBHOOK_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: message }),
-    });
-    if (!res.ok) {
-      console.error("Discord webhook error:", res.status, res.statusText);
-    }
-  } catch (e) {
-    console.error("Error sending Discord alert:", e);
-  }
+  await fetch(process.env.DISCORD_WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content: message })
+  });
 }
 
 async function connectToMongo() {
-  try {
-    const client = new MongoClient(mongoUri);
-    await client.connect();
-    db = client.db(dbName);
-    eventsCollection = db.collection("events");
-    settingsCollection = db.collection("settings");
-    console.log("Connected to MongoDB");
+  const client = new MongoClient(mongoUri, { useUnifiedTopology: true });
+  await client.connect();
+  db = client.db(dbName);
+  eventsCollection = db.collection("events");
+  settingsCollection = db.collection("settings");
+  console.log("Connected to MongoDB");
 
-<<<<<<< HEAD
-    // ensure a globalSettings document exists
-    await settingsCollection.updateOne(
-      { _id: "globalSettings" },
-      {
-        $setOnInsert: {
-          co2Threshold: 800,
-          breakInterval: 45,
-          muteAlerts: false,
-        },
-      },
-      { upsert: true }
-    );
-  } catch (err) {
-    console.error("MongoDB connection error:", err);
-    process.exit(1);
-  }
-}
-
-// serve static pages
-app.get("/", (req, res) =>
-  res.sendFile(path.join(__dirname, "public", "dashboard.html"))
-);
-app.get("/analytics", (req, res) =>
-  res.sendFile(path.join(__dirname, "public", "analytics.html"))
-);
-app.get("/settings", (req, res) =>
-  res.sendFile(path.join(__dirname, "public", "settings.html"))
-);
-
-// new: return your settings document
-app.get("/api/settings", async (req, res) => {
-  try {
-    const settings = await settingsCollection.findOne({ _id: "globalSettings" });
-    if (!settings) {
-      return res.status(404).json({ error: "Settings not found" });
-    }
-    res.json(settings);
-  } catch (err) {
-    console.error("Settings fetch error:", err);
-    res.status(500).json({ error: "Failed to fetch settings" });
-  }
-});
-
-// analytics data
-app.get("/api/analytics-data", async (req, res) => {
-  try {
-    const tenMinsAgo = new Date(Date.now() - 10 * 60 * 1000);
-    const events = await eventsCollection
-      .find({ timestamp: { $gte: tenMinsAgo }, type: "desk" })
-      .toArray();
-
-    const minuteBuckets = {};
-    events.forEach((e) => {
-      const minute = e.timestamp.toISOString().slice(0, 16);
-=======
   // Initialize default settings if none exist
   const defaultSettings = {
     _id: "globalSettings",
@@ -191,35 +106,21 @@ app.get("/api/analytics-data", async (req, res) => {
     let minuteBuckets = {};
     events.forEach(e => {
       const minute = e.timestamp.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:MM"
->>>>>>> 00988b7e6f9bfb03a426f298e5723f592bafb8d1
       if (!minuteBuckets[minute]) minuteBuckets[minute] = { break: 0, count: 0 };
       if (e.event.breakMinutes) minuteBuckets[minute].break += e.event.breakMinutes;
       minuteBuckets[minute].count += 1;
     });
 
-<<<<<<< HEAD
-    const labels = [];
-    const breakDurations = [];
-    for (const [minute, vals] of Object.entries(minuteBuckets)) {
-      labels.push(minute.slice(11));
-=======
     let labels = [], breakDurations = [];
     Object.entries(minuteBuckets).forEach(([minute, vals]) => {
       labels.push(minute.slice(11)); // "HH:MM"
->>>>>>> 00988b7e6f9bfb03a426f298e5723f592bafb8d1
       breakDurations.push(vals.break);
     });
 
-<<<<<<< HEAD
-    const totalExits = events.filter((e) => e.event.exit).length;
-    const totalBreak = events.reduce((sum, e) => sum + (e.event.breakSecs || 0), 0);
-    const totalPostureOk = events.filter((e) => e.event.posture === "ok").length;
-=======
     // For summary cards, use all events in last 10 minutes
     const totalExits = events.filter(e => e.type === "door" && e.event.exit).length;
     const totalBreak = events.reduce((sum, e) => sum + (e.event.breakMinutes || 0), 0);
     const totalPostureOk = events.filter(e => e.event.posture === "ok").length;
->>>>>>> 00988b7e6f9bfb03a426f298e5723f592bafb8d1
     const totalCO2 = events.reduce((sum, e) => sum + (e.event.co2 || 0), 0);
     const count = events.length;
 
@@ -228,14 +129,10 @@ app.get("/api/analytics-data", async (req, res) => {
       avgBreak: count ? Math.round(totalBreak / count) : 0,
       postureOk: count ? Math.round((totalPostureOk / count) * 100) : 0,
       avgCO2: count ? Math.round(totalCO2 / count) : 0,
-<<<<<<< HEAD
-      chart: { labels, breakDurations },
-=======
       chart: {
         labels,
         breakDurations
       }
->>>>>>> 00988b7e6f9bfb03a426f298e5723f592bafb8d1
     });
   } catch (err) {
     console.error("Analytics error:", err);
@@ -243,11 +140,7 @@ app.get("/api/analytics-data", async (req, res) => {
   }
 });
 
-<<<<<<< HEAD
-// dashboard data
-=======
 // Dashboard endpoint with automatic Discord alert
->>>>>>> 00988b7e6f9bfb03a426f298e5723f592bafb8d1
 app.get("/api/dashboard-data", async (req, res) => {
   const event = generateRandomEvent();
   const dashboardData = {
@@ -264,79 +157,10 @@ app.get("/api/dashboard-data", async (req, res) => {
 
   // Fetch user settings for threshold
   try {
-<<<<<<< HEAD
-    const event = await eventsCollection.findOne(
-      { type: "desk" },
-      { sort: { timestamp: -1 } }
-    );
-    if (!event) return res.status(404).json({ error: "No data yet" });
-
-    const dashboardData = {
-      deskOccupied: event.event.presence ?? false,
-      co2: event.event.co2,
-      roomTemp: event.event.temperature,
-      lightOn: true,
-      outdoorTemp: (Math.random() * 15 + 10).toFixed(1),
-      outdoorAqi: Math.floor(Math.random() * 80) + 20,
-      co2Trend: [],
-      occTimeline: [],
-      posture: event.event.posture ?? "ok",
-    };
-
-    const pastEvents = await eventsCollection
-      .find({ type: "desk" })
-      .sort({ timestamp: -1 })
-      .limit(6)
-      .toArray();
-    dashboardData.co2Trend = pastEvents.map((e) => e.event.co2);
-    dashboardData.occTimeline = pastEvents.map((e) =>
-      e.event.presence ? 1 : 0
-    );
-
-    const settings =
-      (await settingsCollection.findOne({ _id: "globalSettings" })) || {};
-    const threshold = settings.co2Threshold || 800;
-
-    // optional Discord alerts
-    if (
-      dashboardData.co2 > threshold &&
-      !settings.muteAlerts &&
-      Date.now() - lastDiscordAlertTime > DISCORD_ALERT_COOLDOWN
-    ) {
-      await sendDiscordAlert(
-        `🚨 **CO₂ Alert:** Level is ${dashboardData.co2} ppm at your desk!`
-      );
-      lastDiscordAlertTime = Date.now();
-    }
-    if (
-      dashboardData.deskOccupied &&
-      dashboardData.posture === "bad" &&
-      !settings.muteAlerts &&
-      Date.now() - lastPostureAlertTime > POSTURE_ALERT_COOLDOWN
-    ) {
-      await sendDiscordAlert(
-        `⚠️ **Posture Alert:** Bad posture detected at your desk!`
-      );
-      lastPostureAlertTime = Date.now();
-    }
-
-    res.json(dashboardData);
-  } catch (err) {
-    console.error("Dashboard fetch error:", err);
-    res.status(500).json({ error: "Failed to fetch dashboard data" });
-  }
-});
-
-// report ingestion
-app.post("/api/report", async (req, res) => {
-  try {
-    const { seatedSecs, breakSecs, temperature, co2, timestamp } = req.body;
-=======
     const settings = await settingsCollection.findOne({ _id: "globalSettings" });
     const threshold = settings?.co2Threshold || 800;
 
     // --- CO₂ Alert ---
->>>>>>> 00988b7e6f9bfb03a426f298e5723f592bafb8d1
     if (
       dashboardData.co2 > threshold &&
       (!settings.muteAlerts) &&
@@ -351,17 +175,6 @@ app.post("/api/report", async (req, res) => {
       }
     }
 
-<<<<<<< HEAD
-    const report = {
-      type: "desk",
-      deviceId: "desk-001",
-      timestamp: timestamp ? new Date(timestamp) : new Date(),
-      event: { seatedSecs, breakSecs, temperature, co2 },
-    };
-
-    await eventsCollection.insertOne(report);
-    res.json({ success: true });
-=======
     // --- Posture Alert ---
     if (
       dashboardData.deskOccupied && // Only alert if someone is at the desk
@@ -378,7 +191,6 @@ app.post("/api/report", async (req, res) => {
       }
     }
 
->>>>>>> 00988b7e6f9bfb03a426f298e5723f592bafb8d1
   } catch (err) {
     console.error("Settings fetch error (for Discord alert):", err);
     // Continue anyway
@@ -387,24 +199,6 @@ app.post("/api/report", async (req, res) => {
   res.json(dashboardData);
 });
 
-<<<<<<< HEAD
-// recent reports
-app.get("/api/reports", async (req, res) => {
-  try {
-    const reports = await eventsCollection
-      .find({ type: "desk" })
-      .sort({ timestamp: -1 })
-      .limit(10)
-      .toArray();
-    res.json(reports);
-  } catch (err) {
-    console.error("Failed to fetch reports:", err);
-    res.status(500).json({ error: "Failed to fetch reports" });
-  }
-});
-
-// start server on all interfaces
-=======
 // User settings endpoints
 app.get("/api/settings", async (req, res) => {
   try {
@@ -448,9 +242,6 @@ app.post('/api/send-discord-alert', express.json(), async (req, res) => {
 });
 
 // ----------- Start Server -----------
->>>>>>> 00988b7e6f9bfb03a426f298e5723f592bafb8d1
 connectToMongo().then(() => {
-  app.listen(PORT, "0.0.0.0", () =>
-    console.log(`Server running on port ${PORT}`)
-  );
+  app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
 });
