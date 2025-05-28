@@ -19,51 +19,19 @@
   <main class="main">
     <header><h1>Analytics</h1></header>
 
-    <!-- Summary Metrics -->
+    <!-- Summary Metrics (over all time) -->
     <section class="analytics-metrics">
-      <div class="card">
-        <div class="title">Total Exits</div>
-        <div class="value" id="total-exits">—</div>
-      </div>
-      <div class="card">
-        <div class="title">Avg Break (min)</div>
-        <div class="value" id="avg-break">—</div>
-      </div>
-      <div class="card">
-        <div class="title">% Good Posture</div>
-        <div class="value" id="posture-ok">—%</div>
-      </div>
-      <div class="card">
-        <div class="title">Avg CO₂ (ppm)</div>
-        <div class="value" id="avg-co2">—</div>
-      </div>
+      <div class="card"><div class="title">Total Exits</div><div class="value" id="total-exits">—</div></div>
+      <div class="card"><div class="title">Avg Break (min)</div><div class="value" id="avg-break">—</div></div>
+      <div class="card"><div class="title">% Good Posture</div><div class="value" id="posture-ok">—%</div></div>
+      <div class="card"><div class="title">Avg CO₂ (ppm)</div><div class="value" id="avg-co2">—</div></div>
     </section>
 
     <!-- Break-duration-over-time Chart -->
     <div class="analytics-chart" style="height:350px; margin-bottom:2rem;">
-      <h2>Break Duration by Minute (last 10 min)</h2>
-      <!-- explicit height attribute ensures Chart.js can render -->
+      <h2>Break Duration Over Time</h2>
       <canvas id="chart-break" height="250"></canvas>
     </div>
-
-    <!-- All Reports Table -->
-    <section class="analytics-reports" style="margin-bottom:2rem;">
-      <h2>All Reports</h2>
-      <div style="overflow-x:auto;">
-        <table id="reports-table" style="width:100%; border-collapse:collapse;">
-          <thead>
-            <tr>
-              <th>Timestamp</th>
-              <th>Seated Secs</th>
-              <th>Break Secs</th>
-              <th>Temperature</th>
-              <th>CO₂</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </section>
 
     <button id="refresh-analytics">Refresh</button>
   </main>
@@ -71,94 +39,79 @@
   <script>
     let breakChart;
 
-    // Fetch summary metrics (last 10min) as before
     async function loadAnalytics() {
-      try {
-        const res = await fetch('/api/analytics-data');
-        const json = await res.json();
-        document.getElementById('total-exits').textContent = json.totalExits;
-        document.getElementById('avg-break').textContent   = json.avgBreak;
-        document.getElementById('posture-ok').textContent  = json.postureOk + '%';
-        document.getElementById('avg-co2').textContent     = json.avgCO2;
-      } catch (e) {
-        console.error('Analytics load error:', e);
-      }
-    }
+      const res = await fetch('/api/reports');
+      const reports = await res.json();
 
-    // Fetch all reports and draw both table AND chart from them
-    async function loadReports() {
-      try {
-        const res = await fetch('/api/reports');
-        const reports = await res.json();
-        const tbody = document.querySelector('#reports-table tbody');
-        tbody.innerHTML = '';
 
-        // Prepare arrays for the chart
-        const labels = [];
-        const durations = [];
+      // compute metrics and chart arrays
+      let totalExits = 0, totalBreak = 0, totalCO2 = 0, postureOk = 0;
+      const labels = [], durations = [];
 
-        reports.forEach(r => {
-          // build table row
-          const tr = document.createElement('tr');
-          const ts = new Date(r.timestamp).toLocaleString();
-          tr.innerHTML = `
-            <td>${ts}</td>
-            <td>${r.event.seatedSecs}</td>
-            <td>${r.event.breakSecs}</td>
-            <td>${r.event.temperature.toFixed(1)}°C</td>
-            <td>${r.event.co2}</td>
-          `;
-          tbody.appendChild(tr);
 
-          // collect for chart
-          labels.push(new Date(r.timestamp).toLocaleTimeString().slice(0,5));
-          durations.push((r.event.breakSecs || 0) / 60);
-        });
+      reports.forEach(r => {
+        const { breakSecs, co2, posture, exit } = r.event;
+        const dt = new Date(r.timestamp);
+        // include full date + HH:MM
+        const label = dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString().slice(0,5);
 
-        // draw or update the chart
-        if (breakChart) {
-          breakChart.data.labels = labels;
-          breakChart.data.datasets[0].data = durations;
-          breakChart.update();
-        } else {
-          const ctx = document.getElementById('chart-break').getContext('2d');
-          breakChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-              labels,
-              datasets: [{
-                label: 'Break (min)',
-                data: durations,
-                borderColor: '#4e5dff',
-                backgroundColor: 'rgba(78,93,255,0.2)',
-                fill: true,
-                tension: 0.3
-              }]
-            },
-            options: {
-              maintainAspectRatio: false,
-              plugins: { legend: { display: false } },
-              scales: {
-                x: { title: { display: true, text: 'Time (HH:MM)' } },
-                y: { title: { display: true, text: 'Break (min)' } }
+        totalExits += exit ? 1 : 0;
+        totalBreak += breakSecs;
+        totalCO2 += co2;
+        postureOk  += (posture === 'ok') ? 1 : 0;
+
+        labels.push(label);
+        durations.push(breakSecs / 60);
+      });
+
+      const count = reports.length;
+      document.getElementById('total-exits').textContent = totalExits;
+      document.getElementById('avg-break').textContent   = count ? Math.round((totalBreak/60)/count) : 0;
+      document.getElementById('posture-ok').textContent  = count ? Math.round((postureOk/count)*100) + '%' : '—';
+      document.getElementById('avg-co2').textContent     = count ? Math.round(totalCO2/count) : 0;
+
+      const ctx = document.getElementById('chart-break').getContext('2d');
+      const config = {
+        type: 'line',
+        data: { labels, datasets: [{
+          data: durations,
+          borderColor: '#4e5dff',
+          backgroundColor: 'rgba(78,93,255,0.2)',
+          fill: true,
+          tension: 0.3
+        }]},
+        options: {
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: {
+              title: { display: true, text: 'Date & Time' },
+              ticks: {
+                maxRotation: 45,
+                minRotation: 45,
+                autoSkip: true,
+                maxTicksLimit: 10
               }
+            },
+            y: {
+              title: { display: true, text: 'Break (min)' }
             }
-          });
+          }
         }
-      } catch (e) {
-        console.error('Load reports error:', e);
+      };
+
+      if (breakChart) {
+        breakChart.data.labels = labels;
+        breakChart.data.datasets[0].data = durations;
+        breakChart.options.scales.x.ticks.maxTicksLimit = Math.floor(labels.length / 2) || 10;
+        breakChart.update();
+      } else {
+        breakChart = new Chart(ctx, config);
       }
     }
 
-    document.getElementById('refresh-analytics').onclick = () => {
-      loadAnalytics();
-      loadReports();
-    };
-
-    // initial load
+    document.getElementById('refresh-analytics').onclick = loadAnalytics;
     loadAnalytics();
-    loadReports();
   </script>
-
 </body>
 </html>
