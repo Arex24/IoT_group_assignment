@@ -43,9 +43,11 @@
       const res = await fetch('/api/reports');
       const reports = await res.json();
 
+
       // compute metrics and chart arrays
       let totalExits = 0, totalBreak = 0, totalCO2 = 0, postureOk = 0;
       const labels = [], durations = [];
+
 
       reports.forEach(r => {
         const { breakSecs, co2, posture, exit } = r.event;

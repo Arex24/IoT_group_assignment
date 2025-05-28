@@ -1,7 +1,7 @@
 # Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
 # More GitHub Actions for Azure: https://github.com/Azure/actions
 
-name: Build and deploy Node.js app to Azure Web App - iot-assignment
+name: Build and deploy Node.js app to Azure Web App - iot-project
 
 on:
   push:
@@ -60,15 +60,15 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_5D100420179241B3AFED9DC144D9B3CB }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_5D0A1D582FB343EDB6E5C06700CE693C }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_20D2E739E4F24AF395C66A90828BDC2E }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_3EA084393FF6480E8085452C86490671 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_C20F80473B4747B0B2D7942C21A9B750 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_C0C71C0032844068A5DB5A2DFD083B53 }}
 
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'iot-assignment'
+          app-name: 'iot-project'
           slot-name: 'Production'
           package: .
           
