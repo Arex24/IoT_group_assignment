@@ -190,5 +190,5 @@ app.post("/api/settings", async (req, res) => {
 
 //── Start Server ──
 connectToMongo().then(() => {
-  app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+  app.listen(PORT, () => console.log(🚀 Server running on port ${PORT}));
 });
