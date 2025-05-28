@@ -40,16 +40,30 @@
     </section>
 
     <!-- Break-duration-over-time Chart -->
-    <div 
-      class="analytics-chart" 
-      style="display:flex; flex-direction:column; height:350px; margin-bottom:2rem;"
-    >
+    <div class="analytics-chart" style="height:350px; margin-bottom:2rem;">
       <h2>Break Duration by Minute (last 10 min)</h2>
-      <canvas 
-        id="chart-break" 
-        style="width:100%; flex:1; height:100%;"
-      ></canvas>
+      <!-- explicit height attribute ensures Chart.js can render -->
+      <canvas id="chart-break" height="250"></canvas>
     </div>
+
+    <!-- All Reports Table -->
+    <section class="analytics-reports" style="margin-bottom:2rem;">
+      <h2>All Reports</h2>
+      <div style="overflow-x:auto;">
+        <table id="reports-table" style="width:100%; border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Seated Secs</th>
+              <th>Break Secs</th>
+              <th>Temperature</th>
+              <th>CO₂</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
 
     <button id="refresh-analytics">Refresh</button>
   </main>
@@ -57,24 +71,54 @@
   <script>
     let breakChart;
 
+    // Fetch summary metrics (last 10min) as before
     async function loadAnalytics() {
       try {
         const res = await fetch('/api/analytics-data');
-        if (!res.ok) throw new Error('API error');
         const json = await res.json();
-
-        // metrics
         document.getElementById('total-exits').textContent = json.totalExits;
         document.getElementById('avg-break').textContent   = json.avgBreak;
         document.getElementById('posture-ok').textContent  = json.postureOk + '%';
         document.getElementById('avg-co2').textContent     = json.avgCO2;
+      } catch (e) {
+        console.error('Analytics load error:', e);
+      }
+    }
 
-        // chart
-        const labels = json.chart.labels;
-        const data   = json.chart.breakDurations;
+    // Fetch *all* reports and draw both table AND chart from them
+    async function loadReports() {
+      try {
+        const res = await fetch('/api/reports');
+        const reports = await res.json();
+        const tbody = document.querySelector('#reports-table tbody');
+        tbody.innerHTML = '';
+
+        // Prepare arrays for the chart
+        const labels = [];
+        const durations = [];
+
+        reports.forEach(r => {
+          // build table row
+          const tr = document.createElement('tr');
+          const ts = new Date(r.timestamp).toLocaleString();
+          tr.innerHTML = `
+            <td>${ts}</td>
+            <td>${r.event.seatedSecs}</td>
+            <td>${r.event.breakSecs}</td>
+            <td>${r.event.temperature.toFixed(1)}°C</td>
+            <td>${r.event.co2}</td>
+          `;
+          tbody.appendChild(tr);
+
+          // collect for chart
+          labels.push(new Date(r.timestamp).toLocaleTimeString().slice(0,5));
+          durations.push((r.event.breakSecs || 0) / 60);
+        });
+
+        // draw or update the chart
         if (breakChart) {
           breakChart.data.labels = labels;
-          breakChart.data.datasets[0].data = data;
+          breakChart.data.datasets[0].data = durations;
           breakChart.update();
         } else {
           const ctx = document.getElementById('chart-break').getContext('2d');
@@ -83,30 +127,38 @@
             data: {
               labels,
               datasets: [{
-                data,
-                borderColor: 'var(--accent)',
+                label: 'Break (min)',
+                data: durations,
+                borderColor: '#4e5dff',
                 backgroundColor: 'rgba(78,93,255,0.2)',
                 fill: true,
                 tension: 0.3
               }]
             },
             options: {
+              maintainAspectRatio: false,
               plugins: { legend: { display: false } },
               scales: {
                 x: { title: { display: true, text: 'Time (HH:MM)' } },
                 y: { title: { display: true, text: 'Break (min)' } }
-              },
-              maintainAspectRatio: false
+              }
             }
           });
         }
       } catch (e) {
-        console.error('Analytics load error:', e);
+        console.error('Load reports error:', e);
       }
     }
 
-    document.getElementById('refresh-analytics').onclick = loadAnalytics;
+    document.getElementById('refresh-analytics').onclick = () => {
+      loadAnalytics();
+      loadReports();
+    };
+
+    // initial load
     loadAnalytics();
+    loadReports();
   </script>
+
 </body>
 </html>
