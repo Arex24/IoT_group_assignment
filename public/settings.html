@@ -16,32 +16,20 @@
   </aside>
 
   <main class="main">
-    <header>
-      <h1>Settings</h1>
-    </header>
+    <header><h1>Settings</h1></header>
 
-    <form id="settings-form" class="cards" style="max-width:600px; margin:0 auto; gap:1.5rem; display:grid; grid-template-columns:1fr;">
+    <form id="settings-form" class="cards" style="max-width:400px; margin:0 auto; display:grid; gap:1.5rem;">
       <div class="card">
-        <label for="co2-threshold" class="title">CO₂ Alert Threshold (ppm)</label>
-        <input type="number" id="co2-threshold" min="400" max="2000" step="50" required>
+        <label for="set-temperature" class="title">Set Temperature (°C)</label>
+        <input 
+          type="number" 
+          id="set-temperature" 
+          min="16" max="40" step="0.5" 
+          required
+        >
       </div>
-
-      <div class="card">
-        <label for="break-interval" class="title">Break Reminder Interval (minutes)</label>
-        <select id="break-interval">
-          <option value="10">10</option>
-          <option value="15">15</option>
-          <option value="20">20</option>
-        </select>
-      </div>
-
-      <div class="card">
-        <label for="mute-alerts" class="title">Mute Alerts</label>
-        <input type="checkbox" id="mute-alerts">
-      </div>
-
       <div class="card" style="text-align:center;">
-        <button type="submit">Save Settings</button>
+        <button type="submit">Save Temperature</button>
       </div>
     </form>
 
@@ -53,31 +41,30 @@
       try {
         const res = await fetch('/api/settings');
         const data = await res.json();
-        document.getElementById('co2-threshold').value = data.co2Threshold;
-        document.getElementById('break-interval').value = data.breakInterval;
-        document.getElementById('mute-alerts').checked = data.muteAlerts;
-      } catch (e) {
-        console.error('Load settings error:', e);
+        // default to 22 if missing
+        document.getElementById('set-temperature').value = data.setTemperature ?? 22.0;
+      } catch (err) {
+        console.error('Load settings error:', err);
       }
     }
 
     document.getElementById('settings-form').addEventListener('submit', async e => {
       e.preventDefault();
-      const payload = {
-        co2Threshold: Number(document.getElementById('co2-threshold').value),
-        breakInterval: Number(document.getElementById('break-interval').value),
-        muteAlerts: document.getElementById('mute-alerts').checked
-      };
+      const temp = Number(document.getElementById('set-temperature').value);
       try {
         const res = await fetch('/api/settings', {
           method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify(payload)
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ setTemperature: temp })
         });
-        document.getElementById('settings-status').textContent = res.ok ? 'Settings saved!' : 'Failed to save settings.';
-      } catch (e) {
-        document.getElementById('settings-status').textContent = 'Error saving settings.';
-        console.error('Save settings error:', e);
+        if (res.ok) {
+          document.getElementById('settings-status').textContent = 'Temperature saved!';
+        } else {
+          document.getElementById('settings-status').textContent = 'Failed to save temperature.';
+        }
+      } catch (err) {
+        console.error('Save settings error:', err);
+        document.getElementById('settings-status').textContent = 'Error saving temperature.';
       }
     });
 

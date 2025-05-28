@@ -194,10 +194,65 @@ header h1 {
   text-align: center;
 }
 
-/* —— Canvas sizing —— */
-canvas {
-  flex: 1;
-  width: 100% !important;
-  height: 100% !important;
+/* —— Settings page form —— */
+#settings-form {
+  display: grid;
+  gap: 1.5rem;
+  max-width: 400px;
+  margin: 0 auto;
 }
-  
+
+#settings-form .card {
+  background: var(--card);
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+#settings-form .card label.title {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+}
+
+#settings-form .card input[type="number"],
+#settings-form .card select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 1rem;
+}
+
+#settings-form .card input[type="checkbox"] {
+  transform: scale(1.2);
+  margin-left: 0.5rem;
+}
+
+#settings-form button {
+  width: 100%;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 0.75rem;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+#settings-form button:hover {
+  background: var(--accent-dark);
+}
+
+#settings-status {
+  text-align: center;
+  margin-top: 1.5rem;
+  color: var(--accent);
+  font-weight: 600;
+}

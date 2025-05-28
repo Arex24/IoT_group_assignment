@@ -1,3 +1,88 @@
 the mac address of the door rig: ESP32 MAC Address: 3C:84:27:C7:0C:04
 
 the mac address of the door edge device: MAC Address: 64:E8:33:73:D7:80
+
+
+#include <WiFi.h>
+#include <HTTPClient.h>
+
+// ——— Wi-Fi / HTTP settings ———
+const char* SSID         = "GuerrillaMan";
+const char* PASSWORD     = "12345678";
+const char* REPORT_URL   = "http://172.20.10.3:3000/api/report";
+const char* SETTINGS_URL = "http://172.20.10.3:3000/api/settings";
+
+void setup() {
+  Serial.begin(115200);
+  delay(200);
+
+  Serial.printf("🔌 Connecting to Wi-Fi '%s'...", SSID);
+  WiFi.begin(SSID, PASSWORD);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print('.');
+  }
+  Serial.printf("\n✅ Connected! IP: %s\n", WiFi.localIP().toString().c_str());
+
+  Serial.println("Type '1' then ENTER to send a test report + fetch settings.");
+}
+
+void loop() {
+  if (Serial.available()) {
+    char c = Serial.read();
+    if (c == '1') {
+      sendTestReport();
+    }
+    // flush any additional newline
+    while (Serial.available()) Serial.read();
+  }
+}
+
+void sendTestReport() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("❌ Wi-Fi not connected.");
+    return;
+  }
+
+  // Build test payload
+  uint16_t seatedSecs  = random(0, 600);
+  uint16_t breakSecs   = random(0, 300);
+  float    temperature = random(200, 300) / 10.0;
+  uint16_t co2         = random(400, 2000);
+
+  String payload = "{";
+  payload += "\"seatedSecs\":"  + String(seatedSecs)  + ",";
+  payload += "\"breakSecs\":"   + String(breakSecs)   + ",";
+  payload += "\"temperature\":" + String(temperature, 1) + ",";
+  payload += "\"co2\":"         + String(co2);
+  payload += "}";
+
+  Serial.println("\n📤 Sending report:");
+  Serial.println(payload);
+
+  HTTPClient http;
+  http.begin(REPORT_URL);
+  http.addHeader("Content-Type", "application/json");
+  int code = http.POST(payload);
+  if (code > 0) {
+    Serial.printf("✅ POST /api/report -> HTTP %d\n", code);
+    String resp = http.getString();
+    Serial.printf("   Response: %s\n", resp.c_str());
+  } else {
+    Serial.printf("❌ POST failed: %s\n", http.errorToString(code).c_str());
+  }
+  http.end();
+
+  // Fetch settings
+  Serial.println("🔄 Fetching latest setTemperature...");
+  http.begin(SETTINGS_URL);
+  int getCode = http.GET();
+  if (getCode > 0) {
+    Serial.printf("✅ GET /api/settings -> HTTP %d\n", getCode);
+    String json = http.getString();
+    Serial.printf("   Payload: %s\n", json.c_str());
+  } else {
+    Serial.printf("❌ GET failed: %s\n", http.errorToString(getCode).c_str());
+  }
+  http.end();
+}
